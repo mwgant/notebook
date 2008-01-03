@@ -1,0 +1,66 @@
+#!/usr/bin/ruby -w
+
+require 'optparse'
+require 'rdoc/usage'
+require 'mysql'
+
+DEBUG = false
+GREENTEXT = "\033[32m"
+NORMALTEXT = "\033[0m"
+
+HOST = "localhost"
+USER = ENV['USER']
+PASSWORD = "b1gkzxuSCW8yw"
+DB = "journal"
+
+begin
+
+    # connect to the MySQL server
+    dbh = Mysql.real_connect(HOST, USER, PASSWORD, DB)
+
+    # If no arguments launch vim. The contents of the file are then loaded to
+    # the table.
+    if ARGV.empty?
+        qstr = "load data local infile "
+        qstr2 = "into table entry lines terminated by \'\' (text)"
+        tmpfile = `mktemp /tmp/journal.XXXXXX`
+        tmpfile.chomp!
+        system("vi \'+set tw=80\' #{tmpfile}")
+        qstr = qstr + "\'#{tmpfile}\' " + qstr2
+        if DEBUG
+            puts qstr
+        end
+        dbh.query("#{qstr}")
+        system("rm #{tmpfile}")
+
+    elsif ARGV[0] == "-s"
+        # search for text using regular expression
+        qstr = "SELECT * FROM entry WHERE text REGEXP \'#{ARGV[1]}\'"
+        if DEBUG
+            puts qstr
+        end
+        res = dbh.query("#{qstr}")
+
+        while row = res.fetch_row do
+            printf GREENTEXT + "%s " + NORMALTEXT + "\n%s\n", row[1], row[2]
+        end
+        res.free
+    else
+        # All others assume entry is from command line MUST be quoted.
+        qstr = "INSERT INTO entry (text) VALUES "
+        qstr = qstr + "(\"#{ARGV}\")"
+        if DEBUG
+            puts qstr
+        end
+        dbh.query("#{qstr}")
+    end
+
+rescue Mysql::Error => e
+    puts "Error code: #{e.errno}"
+    puts "Error message: #{e.error}"
+    puts "Error SQLSTATE: #{e.sqlstate}" if e.respond_to?("sqlstate")
+ensure
+    # disconnect from server
+    dbh.close if dbh
+end
+
