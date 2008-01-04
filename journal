@@ -1,5 +1,33 @@
 #!/usr/bin/ruby -w
+#
 # $Id$
+#
+# = NAME
+#   journal 
+#
+# = SYNOPSIS
+#
+#   A simple program that logs journal entries into a MySQL database.
+#
+# = USAGE
+#
+#   journal [ -h | --help ] [[ -s | --search ] <string> ] [<string>]
+#
+#   If no arguments are given then `vi' is launched for the user to enter text
+#   for a new entry. A new entry can be added from the command line by placing
+#   the text in double quotes.
+#
+#   -h | --help
+#       Display this help.
+#
+#   -s | --search <string>
+#       Search for <string> in journal. <string> is treated as a regular
+#       expression.
+#
+# = AUTHOR
+#
+#   Mike Gant, mwgant@gmail.com
+#
 
 require 'optparse'
 require 'rdoc/usage'
@@ -25,9 +53,39 @@ begin
     # connect to the MySQL server
     dbh = Mysql.real_connect(HOST, USER, PASSWORD, DB)
 
-    # If no arguments launch vim. The contents of the file are then loaded to
-    # the table.
-    if ARGV.empty?
+    opts = OptionParser.new
+    opts.on("-h", "--help", "show help") { RDoc::usage('NAME', 'SYNOPSIS', 'USAGE', 'AUTHOR') }
+    # search for text using regular expression
+    opts.on("-s STR", "--search STR", "Enter regular expression search term") do |str|
+        # search for text using regular expression
+        qstr = "SELECT * FROM entry WHERE text REGEXP \'#{str}\'"
+        if DEBUG
+            puts qstr
+        end
+        res = dbh.query("#{qstr}")
+
+        res.each_hash do |row|
+            printf GREENTEXT + "%s " + NORMALTEXT + "\n%s\n", 
+                row['entrydate'], row['text']
+        end
+        res.free
+        dbh.close if dbh
+        exit
+    end
+    # Quoted strings get entered into the database
+    opts.on(/.*/) do |str|
+        qstr = "INSERT INTO entry (text) VALUES "
+        str  = str + "\\n"
+        qstr = qstr + "(\"#{str}\")"
+        if DEBUG
+            puts qstr
+        end
+        dbh.query("#{qstr}")
+        dbh.close if dbh
+        exit
+    end
+    # no arguments then open editor and to edit entry
+    opts.on_tail do
         qstr = "LOAD DATA LOCAL INFILE "
         qstr2 = "INTO TABLE entry LINES TERMINATED BY \'\' (text)"
         tmpfile = `mktemp /tmp/journal.XXXXXX`
@@ -39,29 +97,10 @@ begin
         end
         dbh.query("#{qstr}")
         system("rm #{tmpfile}")
-
-    elsif ARGV[0] == "-s"
-        # search for text using regular expression
-        qstr = "SELECT * FROM entry WHERE text REGEXP \'#{ARGV[1]}\'"
-        if DEBUG
-            puts qstr
-        end
-        res = dbh.query("#{qstr}")
-
-        res.each_hash do |row|
-            printf GREENTEXT + "%s " + NORMALTEXT + "\n%s\n", 
-                row['entrydate'], row['text']
-        end
-        res.free
-    else
-        # All others assume entry is from command line MUST be quoted.
-        qstr = "INSERT INTO entry (text) VALUES "
-        qstr = qstr + "(\"#{ARGV}\")"
-        if DEBUG
-            puts qstr
-        end
-        dbh.query("#{qstr}")
+        dbh.close if dbh
+        exit
     end
+    opts.parse(ARGV) rescue RDoc::usage('usage')
 
 rescue Mysql::Error => e
     puts "Error code: #{e.errno}"
