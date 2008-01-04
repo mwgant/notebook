@@ -1,0 +1,10 @@
+CREATE DATABASE IF NOT EXISTS journal;
+use journal;
+grant select, insert on journal.* to 'mike'@'localhost';
+
+CREATE TABLE IF NOT EXISTS entry (
+        entry_id mediumint NOT NULL AUTO_INCREMENT,
+        entrydate timestamp NOT NULL,
+        text mediumblob default NULL,
+        PRIMARY KEY(entry_id)
+        );
