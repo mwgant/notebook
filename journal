@@ -44,9 +44,9 @@ GREYTEXT    = "\033[37m"
 NORMALTEXT  = "\033[0m"
 
 HOST        = "localhost"
-USER        = ENV['USER']
-PASSWORD    = "b1gkzxuSCW8yw"
-DB          = "journal"
+USER        = "notebook"
+PASSWORD    = ""
+DB          = "notebook_test"
 
 begin
 
