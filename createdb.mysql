@@ -1,6 +1,6 @@
 CREATE DATABASE IF NOT EXISTS journal;
 use journal;
-grant select, insert on journal.* to 'mike'@'localhost';
+grant select, insert on journal.* to '${USER}'@'${HOSTNAME}';
 
 CREATE TABLE IF NOT EXISTS entry (
         entry_id mediumint NOT NULL AUTO_INCREMENT,
